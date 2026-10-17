@@ -38,6 +38,12 @@ public class EmailServiceImpl implements EmailService {
         registro.setDestinatario(dto.destinatario());
         registro.setAsunto(dto.asunto());
         registro.setFecha(LocalDateTime.now());
+        registro.setEstado("PENDIENTE");
+
+        // Se guarda primero (PENDIENTE) y recien despues se manda el mail: si el
+        // mail sale y luego falla el guardado, igual queda registro de que se
+        // intento enviar, y el historial nunca miente.
+        registro = emailEnviadoRepository.save(registro);
 
         try {
             SimpleMailMessage mensaje = new SimpleMailMessage();
@@ -51,7 +57,7 @@ public class EmailServiceImpl implements EmailService {
             registro.setEstado("ENVIADO");
         } catch (MailException e) {
             // Si Gmail rechaza (credenciales, red, etc.) se guarda el error y se
-            // devuelve el registro, en vez de romper toda la request.
+            // devuelve el registro, en vez de romper todo el flujo.
             log.error("No se pudo enviar el mail a {}: {}", dto.destinatario(), e.getMessage());
             registro.setEstado("ERROR");
             registro.setDetalleError(e.getMessage());
