@@ -28,7 +28,13 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public EmailEnviado enviar(EnviarEmailDTO dto) {
+        return enviar(dto, null);
+    }
+
+    @Override
+    public EmailEnviado enviar(EnviarEmailDTO dto, Long ventaId) {
         EmailEnviado registro = new EmailEnviado();
+        registro.setVentaId(ventaId);
         registro.setDestinatario(dto.destinatario());
         registro.setAsunto(dto.asunto());
         registro.setFecha(LocalDateTime.now());
