@@ -33,7 +33,7 @@ public class EmailEnviado {
     private String asunto;
     private LocalDateTime fecha;
 
-    // "ENVIADO" o "ERROR"
+    // "PENDIENTE", "ENVIADO" o "ERROR"
     private String estado;
 
     @Column(length = 1000)
