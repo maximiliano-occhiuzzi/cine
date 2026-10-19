@@ -12,14 +12,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Handler de errores de Ventas. Usa {@link ApiError} (timestamp, status,
- * error, message, path, details) en vez del {@code ErrorDTO{code,message}}
- * mas chico que dibuja el diagrama "Manejo de errores" del Figma: se decidio
- * con el equipo quedarse con esta version mas rica en info para el front.
- * Igual que antes, cada excepcion propia de Ventas tiene su handler y no hay
- * logica compartida con otros microservicios.
- */
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -53,7 +46,6 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), req, null);
     }
 
-    // Validaciones de Bean Validation (@Valid en los DTO de entrada): un detalle por campo.
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidacion(MethodArgumentNotValidException ex, HttpServletRequest req) {
         List<String> detalles = ex.getBindingResult().getFieldErrors().stream()
@@ -62,13 +54,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "Datos invalidos", req, detalles);
     }
 
-    // Body mal formado (JSON invalido) o un path/query param del tipo que no corresponde.
     @ExceptionHandler({ HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class })
     public ResponseEntity<ApiError> handleRequestMalFormado(Exception ex, HttpServletRequest req) {
         return build(HttpStatus.BAD_REQUEST, "La solicitud tiene datos mal formados.", req, null);
     }
 
-    // Catch-all: cualquier otra RuntimeException no prevista.
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiError> handleRuntime(RuntimeException ex, HttpServletRequest req) {
         return build(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), req, null);

@@ -58,8 +58,6 @@ public class PeliculaServiceImpl implements PeliculaService {
     @Override
     @Transactional
     public void eliminarPelicula(Long id) {
-        // Baja logica: no se borra (podria tener Funciones ya vendidas que
-        // la referencian por id desde el modulo Salas).
         Pelicula p = obtenerEntidad(id);
         p.setActivo(false);
         peliculaRepository.save(p);

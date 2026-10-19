@@ -61,7 +61,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class VentaServiceImpl implements VentaService {
 
-    // Valores del enum EstadoButaca real de MS Sala.
     private static final String BUTACA_DISPONIBLE = "DISPONIBLE";
     private static final String BUTACA_OCUPADO = "OCUPADO";
 
@@ -75,9 +74,6 @@ public class VentaServiceImpl implements VentaService {
     @Value("${mercadopago.notification-url:http://localhost:8081/ventas/webhook/mercadopago}")
     private String notificationUrl;
 
-    // A diferencia de notification-url (que necesita ser publica porque la
-    // llama Mercado Pago), esta es la URL del FRONTEND, a la que vuelve el
-    // navegador del propio comprador despues de pagar. localhost anda bien.
     @Value("${app.frontend-url:http://localhost:4200}")
     private String frontendUrl;
 
@@ -97,8 +93,6 @@ public class VentaServiceImpl implements VentaService {
             throw new SolicitudInvalidaException("No se puede elegir la misma butaca mas de una vez");
         }
 
-        // --- 1) Revalidar TODO en el servidor: nunca confiar en lo que el
-        //     cliente vio al navegar, puede haber cambiado. ---
 
         FuncionDTO funcion = obtenerFuncion(venta.getFuncionId());
         List<ButacaDTO> butacasSala = obtenerButacasDeSala(funcion.salaId());
@@ -114,13 +108,6 @@ public class VentaServiceImpl implements VentaService {
                 throw new SolicitudInvalidaException(
                         "La butaca " + butacaId + " no existe en la sala de la funcion " + funcion.id());
             }
-            // NOTA / limitacion conocida: entre este chequeo y el momento en
-            // que la butaca se marca OCUPADO (recien al confirmarse el pago,
-            // no aca) hay una ventana en la que dos personas podrian ver la
-            // misma butaca "disponible" y generar dos preferencias de pago
-            // para ella. Una version mas robusta la reservaria con un
-            // estado intermedio (RESERVADA, con expiracion) al generar la
-            // preferencia. Queda fuera del alcance de esta base.
             if (!butaca.disponible()) {
                 throw new ButacaNoDisponibleException("La butaca " + butaca.fila() + butaca.numero() + " no esta disponible");
             }
@@ -149,16 +136,8 @@ public class VentaServiceImpl implements VentaService {
         venta.setTotal(total);
         venta.setEstado(EstadoVenta.PENDIENTE);
 
-        // Hace falta el id para armar external_reference, por eso se guarda
-        // (flush) ANTES de pedirle la preferencia a Mercado Pago.
         venta = ventaRepository.saveAndFlush(venta);
 
-        // Resiliencia de demo: si Mercado Pago rechaza o no responde (cuenta
-        // sin verificar, token de prueba con restricciones, servicio caido,
-        // etc.) la venta queda creada igual en PENDIENTE, sin link de pago
-        // real. Antes esto deshacia toda la transaccion y no quedaba nada
-        // creado — un problema de cuenta/credenciales de Mercado Pago no
-        // deberia tumbar la compra entera.
         String initPoint = null;
         try {
             MercadoPagoPreferenceResponse preferencia = crearPreferenciaPago(venta, precioEntrada);
@@ -200,24 +179,13 @@ public class VentaServiceImpl implements VentaService {
         EstadoVenta estadoAnterior = venta.getEstado();
         venta.setEstado(EstadoVenta.CANCELADA);
 
-        // Las butacas se liberan SIEMPRE, independientemente de lo que pase
-        // con el reembolso (ver mas abajo). Publicar es "nice to have": si
-        // RabbitMQ/Sala estan caidos, se loguea y se sigue (ver publicar()).
         for (VentaButaca vb : venta.getButacas()) {
             publicarCambioButaca(vb.getButacaId(), BUTACA_DISPONIBLE);
         }
 
-        // El reembolso es un "alt" aparte (igual que en el diagrama de
-        // secuencia): si la venta ya estaba PAGADA se intenta reembolsar en
-        // Mercado Pago; si no, no hay nada que reembolsar. Si el reembolso
-        // falla, NO revierte la cancelacion: queda FALLIDO para resolverlo
-        // a mano despues.
         if (estadoAnterior == EstadoVenta.PAGADA) {
             venta.setEstadoReembolso(intentarReembolso(venta));
 
-            // El stock solo se habia descontado si la venta llego a PAGADA
-            // (ver procesarWebhookMercadoPago); si estaba PENDIENTE no hay
-            // nada que devolver porque nunca se toco.
             for (VentaProducto vp : venta.getProductos()) {
                 ajustarStockProducto(vp.getProductoId(), vp.getCantidad());
             }
@@ -232,10 +200,6 @@ public class VentaServiceImpl implements VentaService {
         return VentaDTO.from(venta);
     }
 
-    // Arma el evento que recibe MS Email para el mail de cancelacion. Mismo
-    // criterio que armarFactura(): la venta ya esta cancelada en este punto,
-    // asi que nada de esto puede hacer fallar la cancelacion -si Auth no
-    // responde, el mail sale sin nombreCompleto.
     private VentaCanceladaEvent armarEventoCancelacion(Venta venta) {
         VentaCanceladaEvent evento = new VentaCanceladaEvent();
         evento.setIdVenta(venta.getId());
@@ -256,14 +220,6 @@ public class VentaServiceImpl implements VentaService {
         return evento;
     }
 
-    // Antes, si Mercado Pago rechazaba/no respondia al generar la
-    // preferencia (ver el catch en altaVenta), la venta quedaba PENDIENTE
-    // para siempre: no habia forma desde la UI de volver a pedir un link de
-    // pago, ni de cancelarla sola (cancelar si funcionaba, pero obligaba a
-    // perder la seleccion de butacas/confiteria y volver a elegir todo de
-    // cero). Este metodo reusa la MISMA venta (mismas butacas, mismos
-    // productos a los precios ya congelados) y solo vuelve a pedirle una
-    // preferencia nueva a Mercado Pago.
     @Override
     @Transactional
     public VentaDTO reintentarPago(Long id, String username, String rolesCsv) {
@@ -275,12 +231,6 @@ public class VentaServiceImpl implements VentaService {
                     "La venta " + id + " ya no esta pendiente de pago (estado actual: " + venta.getEstado() + ")");
         }
 
-        // El precio de la entrada no se guarda suelto en la Venta (solo el
-        // total ya congelado), asi que se despeja aca a partir del total y
-        // los productos (que si tienen su precioUnitario congelado), en vez
-        // de volver a consultar el precio ACTUAL de la funcion en Sala —
-        // eso podria haber cambiado desde que se creo la venta, y el total
-        // ya mostrado/aceptado por el usuario no se tiene que mover.
         BigDecimal subtotalProductos = venta.getProductos().stream()
                 .map(VentaProducto::subtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -302,8 +252,6 @@ public class VentaServiceImpl implements VentaService {
     public void procesarWebhookMercadoPago(MercadoPagoWebhookDTO webhook) {
         if (webhook == null || webhook.data() == null || webhook.data().id() == null
                 || !"payment".equalsIgnoreCase(webhook.type())) {
-            // Mercado Pago manda otros tipos de notificacion (merchant_order,
-            // etc.) que no nos interesan: se ignoran sin romper nada.
             return;
         }
 
@@ -312,7 +260,7 @@ public class VentaServiceImpl implements VentaService {
             pago = mercadoPagoClient.obtenerPago(webhook.data().id());
         } catch (FeignException e) {
             log.error("No se pudo consultar el pago {} en Mercado Pago: {}", webhook.data().id(), e.getMessage());
-            return; // Mercado Pago reintenta el webhook mas tarde si hace falta
+            return;
         }
 
         if (!pago.aprobado()) {
@@ -334,7 +282,6 @@ public class VentaServiceImpl implements VentaService {
             return;
         }
 
-        // Idempotencia: Mercado Pago puede reenviar el mismo webhook.
         if (venta.getEstado() == EstadoVenta.PAGADA) {
             return;
         }
@@ -346,15 +293,10 @@ public class VentaServiceImpl implements VentaService {
         venta.setEstado(EstadoVenta.PAGADA);
         venta.setPaymentId(String.valueOf(pago.id()));
 
-        // El pago ya esta acreditado: las butacas se ocupan aunque Sala este
-        // caida en este instante (se loguea para seguimiento manual).
         for (VentaButaca vb : venta.getButacas()) {
             publicarCambioButaca(vb.getButacaId(), BUTACA_OCUPADO);
         }
 
-        // Idem con el stock de confiteria: recien se descuenta ahora que el
-        // pago esta confirmado (no en altaVenta, que todavia es PENDIENTE y
-        // podria no llegar a pagarse nunca).
         for (VentaProducto vp : venta.getProductos()) {
             ajustarStockProducto(vp.getProductoId(), -vp.getCantidad());
         }
@@ -364,11 +306,6 @@ public class VentaServiceImpl implements VentaService {
         publicar(RabbitMQConfig.CONFIRMADA_ROUTING_KEY, armarFactura(venta));
     }
 
-    // Arma el evento "factura" que recibe MS Email. La venta ya esta pagada
-    // y confirmada en este punto: nada de lo que pase aca puede hacer
-    // fallar la confirmacion, asi que cada dato "extra" (sala, nombre real)
-    // se pide por separado y se degrada a null/placeholder si falla, en vez
-    // de propagar la excepcion.
     private VentaConfirmadaEvent armarFactura(Venta venta) {
         VentaConfirmadaEvent evento = new VentaConfirmadaEvent();
         evento.setIdVenta(venta.getId());
@@ -431,9 +368,6 @@ public class VentaServiceImpl implements VentaService {
         }
     }
 
-    // Variantes "opcionales" que no tiran excepcion: se usan solo para
-    // enriquecer la factura del mail, despues de que la venta ya quedo
-    // confirmada y pagada.
     private FuncionDTO obtenerFuncionOpcional(Long funcionId) {
         try {
             return salaClient.obtenerFuncion(funcionId);
@@ -471,21 +405,12 @@ public class VentaServiceImpl implements VentaService {
         }
     }
 
-    // ---------------------------------------------------------------------
 
     private Venta buscar(Long id) {
         return ventaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No existe la venta con id " + id));
     }
 
-    // Antes cancelar una venta (POST /ventas/{id}/cancelar) no comparaba
-    // contra el usuario logueado: el Gateway deja pasar esa ruta a
-    // cualquier CLIENTE autenticado (tiene que ser asi, nadie es dueno de
-    // "ventas/**" en general), asi que CUALQUIER usuario podia cancelar la
-    // compra de OTRO con solo adivinar/iterar el id (numerico y
-    // secuencial), liberandole la butaca y hasta disparandole un reembolso
-    // que no le corresponde. Este chequeo vive aca (no en el Gateway)
-    // porque el Gateway no sabe de quien es cada venta.
     private void verificarPropietarioOAdmin(Venta venta, String username, String rolesCsv) {
         if (username != null && username.equals(venta.getUsername())) {
             return;
@@ -510,9 +435,6 @@ public class VentaServiceImpl implements VentaService {
         }
     }
 
-    // Unica forma real de leer butacas: la lista completa de la sala (no
-    // existe un GET por id singular en el Sala real). Ventas filtra sobre
-    // esa lista las butacaIds pedidas.
     private List<ButacaDTO> obtenerButacasDeSala(Long salaId) {
         try {
             return salaClient.obtenerButacasPorSala(salaId);
@@ -547,28 +469,17 @@ public class VentaServiceImpl implements VentaService {
                     "Producto #" + vp.getProductoId(), vp.getCantidad(), vp.getPrecioUnitario()));
         }
 
-        // Las 3 vuelven a "Mis compras": es la unica pantalla que no depende
-        // de estado en memoria del carrito (que ya se perdio: volver de MP
-        // es una navegacion nueva, el Angular se reinicia de cero). Ahi se
-        // pide la venta real al backend y se muestra el estado que tenga.
         MercadoPagoPreferenceRequest.BackUrls backUrls = new MercadoPagoPreferenceRequest.BackUrls(
                 frontendUrl + "/historial?pago=exitoso&venta=" + venta.getId(),
                 frontendUrl + "/historial?pago=fallido&venta=" + venta.getId(),
                 frontendUrl + "/historial?pago=pendiente&venta=" + venta.getId());
 
-        // auto_return NO se manda: Mercado Pago lo rechaza (400) cuando
-        // back_urls.success no es una URL publica real, y localhost no lo es
-        // (ver nota en MercadoPagoPreferenceRequest). back_urls solo alcanza
-        // para tener el boton "Volver al sitio" en la pantalla de MP.
         MercadoPagoPreferenceRequest request = new MercadoPagoPreferenceRequest(
                 items, String.valueOf(venta.getId()), notificationUrl, backUrls, null);
 
         try {
             return mercadoPagoClient.crearPreferencia(request);
         } catch (FeignException.FeignClientException e) {
-            // 4xx de la API de Mercado Pago: rechazo a nivel de negocio
-            // (datos invalidos, cuenta/credenciales rechazadas, etc.), no
-            // una caida del servicio.
             throw new PagoRechazadoException("Mercado Pago rechazo la solicitud de pago: " + e.getMessage());
         } catch (FeignException e) {
             throw new ServicioNoDisponibleException(
@@ -576,8 +487,6 @@ public class VentaServiceImpl implements VentaService {
         }
     }
 
-    // Si la venta estaba PAGADA, intenta reembolsar. Nunca tira: si falla
-    // devuelve FALLIDO en vez de interrumpir la cancelacion.
     private EstadoReembolso intentarReembolso(Venta venta) {
         if (venta.getPaymentId() == null) {
             log.warn("La venta {} estaba PAGADA pero no tiene paymentId: no se puede reembolsar", venta.getId());
@@ -593,23 +502,6 @@ public class VentaServiceImpl implements VentaService {
         }
     }
 
-    // Publica el cambio de estado de UNA butaca hacia MS Sala. Async (no
-    // bloquea la venta si Sala/RabbitMQ estan caidos) y reemplaza al viejo
-    // "salaClient.cambiarEstadoButaca(...)" (que llamaba a un endpoint que
-    // no existe en el Sala real) — ver RabbitMQConfig y VentasConsumer de Sala.
-    // Descuenta (delta negativo) o repone (delta positivo) stock en MS
-    // Productos. Igual que con RabbitMQ, si Productos esta caido o el
-    // producto fue dado de baja esto NO puede tumbar la confirmacion del
-    // pago ni la cancelacion de la venta: se loguea y se sigue. Es el mismo
-    // tipo de ventana ya documentada para las butacas (no hay reserva
-    // intermedia), asi que puede quedar el stock desincronizado en un caso
-    // borde de caida de red justo en ese instante; se resuelve a mano.
-    // Productos usa locking optimista (ver Producto.version): si dos
-    // compras del mismo producto llegan casi juntas, la segunda que intenta
-    // guardar se encuentra con un 409 (conflicto de version), no porque el
-    // ajuste en si sea invalido sino porque alguien mas lo modifico un
-    // instante antes. Reintentar unas pocas veces alcanza para resolverlo
-    // solo, sin perder el ajuste en silencio como pasaba antes.
     private static final int INTENTOS_AJUSTE_STOCK = 3;
 
     private void ajustarStockProducto(Long productoId, int delta) {
@@ -641,12 +533,6 @@ public class VentaServiceImpl implements VentaService {
                 new EventoEntradaCompradaDTO(butacaId, nuevoEstado));
     }
 
-    // El cambio en la base ya se hizo. Publicar el evento es "nice to have":
-    // si RabbitMQ no esta levantado, la operacion igual tiene que poder
-    // completarse. Se loguea y se sigue, en vez de romper toda la request.
-    //
-    // El mensaje se manda DESPUES del commit: si la transaccion fallara y se
-    // deshiciera, no tiene que haber salido un aviso de algo que no ocurrio.
     private void publicar(String routingKey, Object evento) {
         publicar(routingKey, RabbitMQConfig.EXCHANGE, evento);
     }
@@ -673,12 +559,6 @@ public class VentaServiceImpl implements VentaService {
         }
     }
 
-    // Pequeno helper: el controller recibe IMapper<Venta> (igual que el
-    // patron de Alumno en la base de escuela), pero aca hace falta tambien
-    // la lista de butacas/productos que trae el DTO concreto (VentaAltaDTO),
-    // que IMapper no expone. En vez de agregar eso a la interfaz generica
-    // (rompería el contrato para otros usos futuros), el service hace un
-    // chequeo de tipo acotado a este unico caso.
     private VentaAltaDTO dto(IMapper<Venta> mapper) {
         return mapper instanceof VentaAltaDTO v ? v : null;
     }

@@ -55,9 +55,7 @@
 			<artifactId>mysql-connector-j</artifactId>
 			<scope>runtime</scope>
 		</dependency>
-		<!-- El perfil "dev" (modulo-salas-dev.yml) usa H2 en memoria para no
-		     tener que levantar MySQL en una maquina de desarrollo; el perfil
-		     "docker" sigue usando MySQL real (mysql-connector-j, arriba). -->
+		
 		<dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>
@@ -73,8 +71,7 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-		<!-- Swagger/OpenAPI: los controllers (Sala/Funcion/Butaca) usan @Tag y
-		     @Operation para documentar los endpoints. Sin esto no compila. -->
+		
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>

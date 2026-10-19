@@ -59,10 +59,7 @@
 			<artifactId>mysql-connector-j</artifactId>
 			<scope>runtime</scope>
 		</dependency>
-		<!-- El perfil "dev" (application.yml local) usa H2 en memoria para no
-		     tener que levantar MySQL en una maquina de desarrollo; el perfil
-		     "docker" usa MySQL real (mysql-connector-j, arriba), con
-		     persistencia real via volumen (ver docker-compose.yml). -->
+		
 		<dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>
@@ -72,13 +69,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-h2console</artifactId>
 		</dependency>
-		<!-- Envio de mails (SMTP de Gmail) -->
+		
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
-		<!-- Generacion del QR del mail de confirmacion (se genera localmente,
-		     no depende de ningun servicio externo ni de internet) -->
+		
 		<dependency>
 			<groupId>com.google.zxing</groupId>
 			<artifactId>javase</artifactId>

@@ -51,9 +51,6 @@ public class AuthController {
             return error(HttpStatus.UNAUTHORIZED, "Usuario o contraseña incorrectos", req);
         }
 
-        // No se distingue el mensaje de "no existe"/"contraseña mal" (arriba)
-        // del de "deshabilitado": si fueran distintos, alguien podría usar
-        // el login para averiguar si un username existe y fue dado de baja.
         if (!estaHabilitado(usuario)) {
             return error(HttpStatus.UNAUTHORIZED, "Usuario o contraseña incorrectos", req);
         }
@@ -61,9 +58,6 @@ public class AuthController {
         return ResponseEntity.ok(armarRespuesta(usuario));
     }
 
-    // El refresh token es la prueba acá — no hace falta un access token
-    // vigente para pedir uno nuevo (de hecho, el caso de uso típico es
-    // justo cuando el access token YA venció).
     @PostMapping("/refresh")
     public ResponseEntity<?> refresh(@Valid @RequestBody RefreshTokenRequest request, HttpServletRequest req) {
         Usuario usuario = refreshTokenService.validarYObtenerUsuario(request.getRefreshToken())
@@ -74,38 +68,23 @@ public class AuthController {
                     "Refresh token inválido, vencido o revocado. Iniciá sesión de nuevo.", req);
         }
 
-        // Si lo deshabilitaron DESPUES de loguearse, el access token que ya
-        // tiene sigue siendo valido hasta que expira solo (limitacion
-        // conocida de JWT stateless, ver nota en logout mas abajo) pero no
-        // puede renovarlo: se le revoca este refresh token y se lo corta aca.
         if (!estaHabilitado(usuario)) {
             refreshTokenService.revocar(request.getRefreshToken());
             return error(HttpStatus.UNAUTHORIZED,
                     "Usuario deshabilitado. Iniciá sesión de nuevo o contactá a un administrador.", req);
         }
 
-        // Rotación: el refresh token usado queda revocado y se emite uno
-        // nuevo junto con el access token. Si alguien roba un refresh
-        // token viejo y lo reutiliza, deja de servir apenas el dueño
-        // legítimo pidió uno nuevo primero.
         refreshTokenService.revocar(request.getRefreshToken());
 
         return ResponseEntity.ok(armarRespuesta(usuario));
     }
 
-    // Esto es el logout "real" del lado del servidor: revoca el refresh
-    // token para que no se puedan seguir pidiendo access tokens nuevos.
-    // El último access token emitido sigue siendo válido hasta que
-    // expira solo (limitación conocida de JWT stateless) — por eso su
-    // duración es corta.
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@Valid @RequestBody RefreshTokenRequest request) {
         refreshTokenService.revocar(request.getRefreshToken());
         return ResponseEntity.ok().build();
     }
 
-    // Protegido en SecurityConfig con hasRole("ADMIN"): solo alguien ya
-    // logueado como ADMIN puede crear usuarios nuevos.
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request, HttpServletRequest req) {
         if (usuarioRepository.findByUsername(request.getUsername()).isPresent()) {
@@ -131,10 +110,6 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body("Usuario creado con rol " + rol);
     }
 
-    // Alta libre (sin login previo) para que un cliente nuevo se registre
-    // solo desde el front público — a diferencia de /auth/register (que
-    // sigue reservado a ADMIN, para crear EMPLEADO/ADMIN), esta siempre
-    // crea CLIENTE: nadie puede autoasignarse un rol más alto por acá.
     @PostMapping("/registro-cliente")
     public ResponseEntity<?> registroCliente(@Valid @RequestBody RegisterRequest request, HttpServletRequest req) {
         if (usuarioRepository.findByUsername(request.getUsername()).isPresent()) {
@@ -153,11 +128,6 @@ public class AuthController {
         return ResponseEntity.ok(armarRespuesta(nuevo));
     }
 
-    // Lookup liviano usado por OTROS microservicios via Feign (hoy: Ventas,
-    // para poner el nombre/apellido reales en la factura). No pasa por el
-    // Gateway en el flujo normal de Ventas->Auth (Feign llama directo a
-    // esta instancia vía Eureka); queda público a nivel de Auth a propósito
-    // porque es tráfico de servicio a servicio, no de un usuario final.
     @GetMapping("/usuarios/{username}")
     public ResponseEntity<?> obtenerUsuario(@PathVariable String username) {
         return usuarioRepository.findByUsername(username)
@@ -165,9 +135,6 @@ public class AuthController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // Listado para el panel de administracion de usuarios. Protegido con
-    // hasRole("ADMIN") en SecurityConfig -a diferencia de /usuarios/{username}
-    // de arriba, este SI expone rol y estado, asi que no puede quedar publico.
     @GetMapping("/usuarios")
     public ResponseEntity<List<AdminUsuarioDTO>> listarUsuarios() {
         return ResponseEntity.ok(usuarioRepository.findAll().stream()
@@ -175,8 +142,6 @@ public class AuthController {
                 .toList());
     }
 
-    // Baja/alta logica (ver nota en Usuario.habilitado): no borra nada,
-    // solo le corta (o le devuelve) el acceso. Protegido con hasRole("ADMIN").
     @PatchMapping("/usuarios/{username}/estado")
     public ResponseEntity<?> cambiarEstado(@PathVariable String username,
                                             @Valid @RequestBody ActualizarEstadoUsuarioRequest request,
@@ -189,10 +154,6 @@ public class AuthController {
         usuario.setHabilitado(request.habilitado());
         usuarioRepository.save(usuario);
 
-        // Al deshabilitar, se revocan TODOS sus refresh tokens vigentes de
-        // una: si no, alguien con sesion abierta en otro dispositivo podria
-        // seguir renovando el access token y el alta/baja no cortaria nada
-        // hasta que ese access token expirara solo por su cuenta.
         if (!request.habilitado()) {
             refreshTokenService.revocarTodosDe(usuario);
         }
@@ -200,7 +161,6 @@ public class AuthController {
         return ResponseEntity.ok(AdminUsuarioDTO.from(usuario));
     }
 
-    // Edicion de datos (nombre/apellido/email/rol). Protegido con hasRole("ADMIN").
     @PutMapping("/usuarios/{username}")
     public ResponseEntity<?> actualizarUsuario(@PathVariable String username,
                                                 @Valid @RequestBody ActualizarUsuarioRequest request,
@@ -226,17 +186,10 @@ public class AuthController {
         return ResponseEntity.ok(AdminUsuarioDTO.from(usuario));
     }
 
-    // NULL (filas creadas antes de que existiera esta columna) cuenta como
-    // habilitado -ver nota en Usuario.habilitado.
     private boolean estaHabilitado(Usuario usuario) {
         return !Boolean.FALSE.equals(usuario.getHabilitado());
     }
 
-    // Antes estos errores de negocio se devolvian como String plano en el
-    // body (ResponseEntity.status(..).body("texto")): el front no podia
-    // leerlos con el mismo criterio que al resto de los modulos (ver
-    // core/utils/error.util.ts), que esperan un objeto con "message". Se
-    // unifica aca al mismo ApiError que usa el resto del sistema.
     private ResponseEntity<ApiError> error(HttpStatus status, String message, HttpServletRequest req) {
         ApiError error = ApiError.builder()
                 .timestamp(LocalDateTime.now())

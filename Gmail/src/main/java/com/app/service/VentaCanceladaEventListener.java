@@ -14,16 +14,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 
-/**
- * Escucha "cola.cancelacion-venta" (mismo exchange "venta.eventos", routing
- * key "venta.cancelada" — ver RabbitMQConfig): por cada venta cancelada
- * manda un mail avisandole al comprador, incluyendo si el reembolso (si
- * correspondia) salio bien o no.
- *
- * Mismo patron de idempotencia/resiliencia que VentaEventListener: un
- * evento duplicado no manda dos correos, y si Auth no responde el correo
- * sale igual (sin nombre real, con el username a secas).
- */
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -60,10 +51,6 @@ public class VentaCanceladaEventListener {
             log.info("Correo de cancelacion de la venta {} procesado con estado {}",
                     registro.getVentaId(), registro.getEstado());
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            // Misma carrera que en VentaEventListener: dos entregas del mismo
-            // evento casi en simultaneo pasaron existsByVentaIdAndTipo() en
-            // false las dos. El primero ya mando el mail bien, se descarta
-            // el segundo en vez de reencolarlo en loop.
             log.warn("La cancelacion de la venta {} ya tenia un correo registrado (carrera entre dos entregas del mismo evento); se ignora", evento.idVenta());
         }
     }
@@ -79,8 +66,6 @@ public class VentaCanceladaEventListener {
         }
     }
 
-    // Mismos colores que VentaEventListener, para que el mail de
-    // cancelacion se vea como parte del mismo sistema.
     private static final String ROJO = "#e50914";
     private static final String NEGRO = "#141414";
     private static final String GRIS_OSCURO = "#1f1f1f";
@@ -144,9 +129,6 @@ public class VentaCanceladaEventListener {
             + "</body></html>";
     }
 
-    // "COMPLETADO"/"FALLIDO"/"NO_APLICA" (ver EstadoReembolso en Ventas).
-    // Null/desconocido se trata como NO_APLICA para no afirmar algo que no
-    // se sabe con certeza.
     private String mensajeReembolso(String estadoReembolso) {
         if ("COMPLETADO".equals(estadoReembolso)) {
             return "<p style=\"color:" + VERDE + ";font-size:13px;margin:0;\">✔ El reembolso ya fue procesado por Mercado Pago.</p>";

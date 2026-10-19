@@ -24,29 +24,15 @@ public class Usuario {
 
     private String username;
 
-    // Nombre y apellido reales de la persona — se usan para mostrar
-    // "comprado por" en la factura/resumen de compra que arma Ventas.
     private String nombre;
     private String apellido;
 
-    // Direccion para mandar el mail de factura (lo pide MS Factura).
     private String email;
 
-    // Nunca se guarda en texto plano: siempre pasa por BCryptPasswordEncoder
-    // antes de llegar acá (ver AuthController y DataInitializer).
     private String password;
 
     @Enumerated(EnumType.STRING)
     private Rol rol;
 
-    // Baja logica: un usuario deshabilitado no puede loguearse ni renovar
-    // su sesion (ver AuthController#login/#refresh), pero sus ventas/
-    // facturas/mails viejos quedan intactos en el historial de todos -no
-    // se borra nada, solo se le corta el acceso. Boolean (no boolean) a
-    // proposito: filas viejas, creadas antes de que esta columna existiera,
-    // van a tener NULL aca cuando Hibernate la agregue con ddl-auto=update
-    // (no hace backfill), y el codigo que la lee trata null como
-    // "habilitado" (ver AuthController#estaHabilitado) para no bloquear
-    // sin querer a nadie que ya existia.
     private Boolean habilitado = Boolean.TRUE;
 }

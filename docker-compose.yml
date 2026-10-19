@@ -1,38 +1,7 @@
-# =====================================================================
-# docker-compose.yml — levanta todo el sistema (cine) con un solo comando.
-#
-#   docker compose up -d
-#
-# NO COMPILA NADA: baja las imagenes ya armadas de Docker Hub
-# (maxmegafuego/cine-*:latest), publicadas automaticamente por GitHub
-# Actions (ver .github/workflows/docker-publish.yml) cada vez que se hace
-# push a main. Arranca en segundos y no depende de que Maven Central o npm
-# respondan bien en el momento de la muestra.
-#
-# Si en cambio queres compilar desde el codigo que tenes en el disco (por
-# ejemplo estas probando un cambio que todavia no subiste a GitHub), usa el
-# override de al lado:
-#
-#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
-#
-# Requiere un archivo .env al lado de este (copiar .env.example y completar
-# los valores reales: JWT_SECRET, GATEWAY_INTERNAL_SECRET, MERCADOPAGO_*,
-# GMAIL_*, *_DB_PASSWORD). Sin .env, Docker Compose usa los defaults de
-# "demo" que estan puestos abajo (funcionan para levantar todo, pero NO
-# sirven para cobrar de verdad ni mandar mails reales).
-#
-# Cada microservicio con datos propios (auth, productos, salas, ventas,
-# gmail, factura) tiene SU PROPIO contenedor MySQL, con su usuario, clave,
-# base y volumen -igual que escuelatp-: los datos sobreviven a un
-# "docker compose down" / reinicio, a diferencia de antes (H2 en memoria,
-# se perdia todo cada vez). El perfil "dev" (fuera de Docker) sigue usando
-# H2 en memoria -no cambia nada ahi.
-# =====================================================================
 name: cine
 
 services:
 
-  # ---------- Bases de datos (una por microservicio) ----------
   auth-db:
     image: mysql:8.4
     command: ["--performance-schema=OFF", "--innodb-buffer-pool-size=64M", "--max-connections=50"]
@@ -42,7 +11,7 @@ services:
       MYSQL_PASSWORD: ${AUTH_DB_PASSWORD:-auth_pass}
       MYSQL_DATABASE: auth_database
     ports:
-      - "3307:3306"     # para mirar la base desde afuera (Workbench/DBeaver)
+      - "3307:3306"
     volumes:
       - auth_db_data:/var/lib/mysql
     healthcheck:
@@ -153,7 +122,6 @@ services:
       start_period: 20s
     restart: unless-stopped
 
-  # ---------- Mensajeria ----------
   rabbitmq:
     image: rabbitmq:3-management
     environment:
@@ -161,7 +129,7 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     ports:
       - "5672:5672"
-      - "15672:15672"   # panel: http://localhost:15672
+      - "15672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -169,13 +137,12 @@ services:
       retries: 10
     restart: unless-stopped
 
-  # ---------- Infraestructura Spring Cloud ----------
   registry:
     image: maxmegafuego/cine-registry:latest
     environment:
       JAVA_TOOL_OPTIONS: "-Xmx256m"
     ports:
-      - "8761:8761"     # Eureka: http://localhost:8761
+      - "8761:8761"
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8761'"]
       interval: 10s
@@ -194,9 +161,6 @@ services:
         condition: service_healthy
     ports:
       - "8888:8888"
-    # El Config Server clona el repo de properties al arrancar (requiere
-    # salida a internet desde el contenedor): recien cuando responde en su
-    # puerto, el resto de los servicios puede pedirle su configuracion.
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8888'"]
       interval: 10s
@@ -211,13 +175,12 @@ services:
       JAVA_TOOL_OPTIONS: "-Xmx256m"
       SPRING_PROFILES_ACTIVE: docker
     ports:
-      - "8090:8090"     # Spring Boot Admin: http://localhost:8090
+      - "8090:8090"
     depends_on:
       registry:
         condition: service_healthy
     restart: unless-stopped
 
-  # ---------- Microservicios ----------
   auth:
     image: maxmegafuego/cine-auth:latest
     environment:
@@ -280,9 +243,6 @@ services:
       RABBITMQ_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
       MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:?Falta MERCADOPAGO_ACCESS_TOKEN en el .env (token de prueba de tu cuenta de Mercado Pago Developers)}
-      # Sin ngrok (perfil "ngrok" abajo) o sin cargar esto a mano en el .env,
-      # queda apuntando a localhost -el webhook real de Mercado Pago no va a
-      # poder pegarle, pero el resto del sistema funciona igual.
       MERCADOPAGO_NOTIFICATION_URL: ${MERCADOPAGO_NOTIFICATION_URL:-http://localhost:8081/ventas/webhook/mercadopago}
       VENTAS_DB_PASSWORD: ${VENTAS_DB_PASSWORD:-ventas_pass}
     ports:
@@ -304,10 +264,6 @@ services:
       GATEWAY_INTERNAL_SECRET: ${GATEWAY_INTERNAL_SECRET:-AXGstSXNH+4A1uVn2dPwfBSealCI1PSochtm/JjHfgE=}
       RABBITMQ_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
-      # Cuenta remitente real de Gmail + "contraseña de aplicación" (no la
-      # contraseña normal de la cuenta — se genera con verificación en 2
-      # pasos activada). Sin esto el servicio arranca igual, pero no manda
-      # ningún mail (confirmación ni cancelación).
       GMAIL_USERNAME: ${GMAIL_USERNAME:-}
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
       GMAIL_DB_PASSWORD: ${GMAIL_DB_PASSWORD:-gmail_pass}
@@ -349,57 +305,35 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       JWT_SECRET: ${JWT_SECRET:-7J3E+fmsIoAXFpZj26G8wX/L1rvBH9vG5FdumdIqVrU=}
     ports:
-      - "8081:8081"     # unica puerta de entrada para el front
+      - "8081:8081"
     depends_on:
       configserver:
         condition: service_healthy
     restart: on-failure
 
-  # ---------- Front (repo aparte: github.com/maximiliano-occhiuzzi/cine-frontend) ----------
   front:
     image: maxmegafuego/cine-front:latest
     ports:
-      - "4200:80"       # http://localhost:4200
+      - "4200:80"
     depends_on:
       - gateway
     restart: unless-stopped
 
-  # ---------- ngrok (OPCIONAL) ----------
-  # No se levanta con "docker compose up" normal: hay que pedirlo con
-  # --profile ngrok. Sirve para que el webhook de Mercado Pago (que lo llama
-  # un servidor externo, no tu PC) pueda llegar al Gateway.
-  #
-  #   docker compose --profile ngrok up -d
-  #
-  # Requiere NGROK_AUTHTOKEN en el .env (cuenta gratuita en ngrok.com).
-  #
-  # Usa el dominio estatico gratuito de la cuenta (NGROK_DOMAIN en el .env,
-  # hoy: juiciness-photo-senior.ngrok-free.dev): la URL publica queda FIJA
-  # entre reinicios, asi que MERCADOPAGO_NOTIFICATION_URL (tambien en el
-  # .env) no se desactualiza nunca -nada que copiar/pegar a mano el dia de
-  # la muestra. Si alguna vez quieren volver a la URL aleatoria del plan
-  # gratis (por ejemplo si cambia el dominio o la cuenta), el command de
-  # abajo pasa a ser simplemente ["http", "gateway:8081"].
   ngrok:
     image: ngrok/ngrok:latest
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Falta NGROK_AUTHTOKEN en el .env}
-    # Dominio estatico fijo (juiciness-photo-senior.ngrok-free.dev): la URL
-    # publica no cambia entre reinicios, asi que MERCADOPAGO_NOTIFICATION_URL
-    # (en el .env) queda fijo tambien -nada que copiar/pegar a mano el dia
-    # de la muestra.
     command:
       - "http"
       - "--url=https://${NGROK_DOMAIN}"
       - "gateway:8081"
     ports:
-      - "4040:4040"     # panel de ngrok: http://localhost:4040 (ahi ves la URL publica actual)
+      - "4040:4040"
     depends_on:
       - gateway
     profiles: ["ngrok"]
     restart: unless-stopped
 
-# ---------- Volumenes independientes (uno por base) ----------
 volumes:
   auth_db_data:
   productos_db_data:

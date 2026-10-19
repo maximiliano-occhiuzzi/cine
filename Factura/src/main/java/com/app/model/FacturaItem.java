@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
-/** Linea de la factura (una entrada o un producto de confiteria), embebida. */
+
 @Embeddable
 @Data
 @NoArgsConstructor

@@ -17,18 +17,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * La factura/resumen de compra como RECURSO PROPIO, en su propia base, en
- * su propio microservicio — a pedido explicito del profesor (antes era
- * solo un evento que armaba Ventas y consumia Email, sin persistencia
- * propia ni separacion de responsabilidades real).
- *
- * Se llena a partir de VentaConfirmadaEvent (ver FacturaEventDTO), que
- * publica MS Ventas por RabbitMQ cuando se confirma el pago. Es una copia
- * snapshot de esos datos: si Venta, Sala o Productos cambian despues, la
- * factura ya emitida no cambia (es justamente lo que se espera de una
- * factura real).
- */
+
 @Entity
 @Table(name = "factura")
 @Data
@@ -39,11 +28,6 @@ public class Factura {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // unique=true: el service chequea findByVentaId().isPresent() antes de
-    // guardar, pero ese chequeo y el insert posterior no son atomicos entre
-    // si — con esta constraint, una segunda entrega del mismo evento (redelivery
-    // de RabbitMQ) choca a nivel de base en vez de poder crear una factura
-    // duplicada para la misma venta.
     @Column(unique = true)
     private Long ventaId;
     private String numeroCompra;
@@ -73,9 +57,4 @@ public class Factura {
     private BigDecimal subtotalProductos = BigDecimal.ZERO;
     private BigDecimal total = BigDecimal.ZERO;
 
-    // El mail de confirmacion NO lo manda Factura: MS Gmail escucha el
-    // MISMO evento venta.confirmada con su propia cola
-    // (cola.confirmacion-venta) y lo manda por su cuenta, en paralelo,
-    // sin que Factura tenga que saber que Gmail existe. Si queres saber si
-    // el mail de una venta salio, consultalo en Gmail (GET /gmail/historial).
 }

@@ -11,14 +11,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * Carga un catalogo inicial de productos (pochoclos, bebidas, combos, etc.)
- * la primera vez que arranca el microservicio, para que el frontend tenga
- * datos que mostrar sin cargarlos a mano.
- *
- * Como la base es H2 en memoria, en cada arranque esta vacia y se vuelve a
- * sembrar. Si ya hay productos (ej: una base persistente), no hace nada.
- */
+
 @Slf4j
 @Component
 @RequiredArgsConstructor

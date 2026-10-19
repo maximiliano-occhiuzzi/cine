@@ -55,12 +55,6 @@ public class ProductoServiceImpl implements ProductoService {
         existente.setNombre(dto.nombre().trim());
         existente.setDescripcion(dto.descripcion());
         existente.setPrecio(dto.precio());
-        // El stock NO se pisa aca a proposito: el unico camino para
-        // cambiarlo es ajustarStock() (PATCH /productos/{id}/stock), que es
-        // el que tiene el locking optimista. Si este metodo tambien
-        // escribiera stock con el valor que tenia el formulario al abrirse,
-        // una edicion de precio/nombre mientras hay compras en curso podia
-        // pisar y perder ventas que bajaron el stock mientras tanto.
         existente.setCategoria(dto.categoria());
         existente.setImagenUrl(dto.imagenUrl());
 
@@ -70,7 +64,6 @@ public class ProductoServiceImpl implements ProductoService {
     @Override
     public Page<ProductoSalidaDTO> listarProductos(CategoriaProducto categoria, String nombre,
                                                    boolean incluirInactivos, Pageable pageable) {
-        // Arranca con una condicion siempre verdadera y le va sumando los filtros.
         Specification<Producto> spec = (root, query, cb) -> cb.conjunction();
 
         if (!incluirInactivos) {
@@ -99,12 +92,6 @@ public class ProductoServiceImpl implements ProductoService {
                 .toList();
     }
 
-    // @Transactional + @Version en Producto: si dos ajustes de stock del
-    // mismo producto corren casi en simultaneo, el segundo en llegar al
-    // commit falla con ObjectOptimisticLockingFailureException (409) en vez
-    // de pisar silenciosamente el resultado del primero. El llamador
-    // (Ventas, via Feign) es quien decide si reintenta ante un 409 — ver
-    // VentaServiceImpl.ajustarStockProducto.
     @Override
     @Transactional
     public ProductoSalidaDTO ajustarStock(Long id, Integer cantidad) {
@@ -135,14 +122,11 @@ public class ProductoServiceImpl implements ProductoService {
 
     @Override
     public void eliminarProducto(Long id) {
-        // Baja logica: no se borra la fila (perderia el historial de ventas que
-        // la referencia); solo se marca como inactiva.
         Producto producto = obtenerEntidad(id);
         producto.setActivo(false);
         productoRepository.save(producto);
     }
 
-    // Helper interno: trae la entidad o corta con 404.
     private Producto obtenerEntidad(Long id) {
         return productoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("Producto no encontrado con id: " + id));

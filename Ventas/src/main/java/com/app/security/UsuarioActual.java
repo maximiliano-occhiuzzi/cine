@@ -6,14 +6,7 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Quien esta haciendo el pedido, segun las cabeceras que agrega el Gateway
- * despues de validar el JWT: X-User-Username y X-User-Roles (ej: ROLE_ADMIN).
- *
- * Es seguro confiar en ellas porque: (1) el Gateway borra las que mande el
- * cliente y (2) GatewayInterceptor rechaza cualquier pedido que no pase por
- * el Gateway.
- */
+
 public record UsuarioActual(String username, Set<String> roles) {
 
     public static final String USERNAME_HEADER = "X-User-Username";

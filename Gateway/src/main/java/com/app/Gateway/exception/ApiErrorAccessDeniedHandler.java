@@ -13,12 +13,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.time.LocalDateTime;
 
-/**
- * Se dispara cuando la request SI tiene un JWT valido, pero el rol no
- * alcanza para ese endpoint (ej. un CLIENTE pegandole a /admin/usuarios).
- * Antes de esto no existia -Spring Security devolvia su 403 por defecto
- * (sin body JSON), igual que con el 401 (ver ApiErrorAuthenticationEntryPoint).
- */
+
 @Component
 public class ApiErrorAccessDeniedHandler implements AccessDeniedHandler {
 

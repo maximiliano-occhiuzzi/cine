@@ -37,8 +37,6 @@ public class ProductoController {
         return ResponseEntity.ok(productoService.modificarProducto(id, dto));
     }
 
-    // Listado paginado con filtros opcionales.
-    // Ej: /productos?categoria=BEBIDA&nombre=coca&page=0&size=5&sort=precio,desc
     @GetMapping
     public ResponseEntity<Page<ProductoSalidaDTO>> listarProductos(
             @RequestParam(required = false) CategoriaProducto categoria,
@@ -48,7 +46,6 @@ public class ProductoController {
         return ResponseEntity.ok(productoService.listarProductos(categoria, nombre, incluirInactivos, pageable));
     }
 
-    // Productos con stock bajo para reposicion. Ej: /productos/bajo-stock?umbral=5
     @GetMapping("/bajo-stock")
     public ResponseEntity<List<ProductoSalidaDTO>> listarBajoStock(
             @RequestParam(defaultValue = "5") int umbral) {
@@ -60,20 +57,17 @@ public class ProductoController {
         return ResponseEntity.ok(productoService.obtenerPorId(id));
     }
 
-    // Ajuste relativo de stock: {"cantidad":10} repone, {"cantidad":-3} descuenta.
     @PatchMapping("/{id}/stock")
     public ResponseEntity<ProductoSalidaDTO> ajustarStock(@PathVariable Long id,
                                                           @Valid @RequestBody ProductoStockDTO dto) {
         return ResponseEntity.ok(productoService.ajustarStock(id, dto.cantidad()));
     }
 
-    // Da de alta de nuevo un producto que habia sido dado de baja.
     @PatchMapping("/{id}/reactivar")
     public ResponseEntity<ProductoSalidaDTO> reactivarProducto(@PathVariable Long id) {
         return ResponseEntity.ok(productoService.reactivarProducto(id));
     }
 
-    // Baja logica: el producto deja de listarse pero no se borra de la base.
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarProducto(@PathVariable Long id) {
         productoService.eliminarProducto(id);

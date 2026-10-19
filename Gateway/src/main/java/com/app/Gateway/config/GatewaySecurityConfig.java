@@ -25,8 +25,6 @@ import java.util.Base64;
 @EnableWebSecurity
 public class GatewaySecurityConfig {
 
-    // Mismo secret que usa Auth para firmar. Viene del application.yml
-    // global del config server, compartido por todos los microservicios.
     @Value("${jwt.secret}")
     private String jwtSecretBase64;
 
@@ -37,14 +35,11 @@ public class GatewaySecurityConfig {
         return NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
     }
 
-    // Lee el claim "roles" (una lista tipo ["ROLE_ADMIN"]) que armamos en
-    // Auth/JwtService, y lo convierte a las authorities que entiende
-    // Spring Security, para poder usar hasRole()/hasAuthority() a futuro.
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
         authoritiesConverter.setAuthoritiesClaimName("roles");
-        authoritiesConverter.setAuthorityPrefix(""); // el claim ya trae el prefijo ROLE_
+        authoritiesConverter.setAuthorityPrefix("");
 
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
@@ -60,70 +55,17 @@ public class GatewaySecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // el preflight de CORS (OPTIONS) tiene que pasar SIEMPRE,
-                // sin JWT, o el navegador nunca ve la respuesta con los
-                // headers de Access-Control-*
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // login/registro: acá es donde se CONSIGUE el token,
-                // así que no puede requerir uno. Auth valida por su cuenta
-                // el registro (es SU propio recurso, no el de otro micro).
-                .requestMatchers("/auth/**").permitAll()
-                .requestMatchers("/actuator/**").permitAll()
-
-                // ACÁ vive TODA la política de permisos del sistema, en un solo
-                // lugar. Los microservicios de dominio no tienen SecurityConfig
-                // propio: confían en que si una request les llegó, el Gateway
-                // ya la autorizó (y el GatewayInterceptor les asegura que no
-                // les peguen directo salteándose este filtro).
-                //
-                // Catalogo (productos, salas, funciones/cartelera, butacas):
-                // leer = PUBLICO (un visitante sin cuenta tiene que poder
-                // ver la cartelera y el mapa de asientos antes de decidir
-                // registrarse/comprar — asi esta armado el front real:
-                // cartelera y mapa-asientos piden estos datos apenas se
-                // abre la pagina, sin pedir login antes). Modificar = ADMIN.
-                //
-                // OJO: el controller real de Sala expone /funciones/** y
-                // /butacas/** como paths PROPIOS (FuncionController,
-                // ButacaController), NO anidados bajo /salas/** — la regla
-                // vieja solo cubria /salas/** y dejaba esos dos afuera (ni
-                // autorizados ni, antes, ruteados). Agregados aca.
-                .requestMatchers(HttpMethod.GET, "/productos/**", "/salas/**", "/funciones/**", "/butacas/**").permitAll()
-                .requestMatchers("/productos/**", "/salas/**", "/funciones/**", "/butacas/**").hasRole("ADMIN")
-
-                // Webhook de Mercado Pago: lo llama Mercado Pago directamente,
-                // no un usuario logueado nuestro — tiene que quedar abierto o
-                // nunca llega a confirmar ningun pago. Va ANTES de la regla
-                // general de /ventas/** para que no quede tapado por ella.
-                .requestMatchers(HttpMethod.POST, "/ventas/webhook/**").permitAll()
-
-                // Ventas: cualquier usuario logueado puede comprar y ver las suyas;
-                // el listado completo es solo para ADMIN y EMPLEADO.
-                .requestMatchers(HttpMethod.POST, "/ventas").authenticated()
-                .requestMatchers(HttpMethod.GET, "/ventas/mias").authenticated()
-                .requestMatchers(HttpMethod.POST, "/ventas/*/cancelar").authenticated()
+                .requestMatchers(HttpMethod.OPTIONS, "cancelar").authenticated()
                 .requestMatchers(HttpMethod.POST, "/ventas/*/reintentar-pago").authenticated()
                 .requestMatchers("/ventas/**").hasAnyRole("ADMIN", "EMPLEADO")
 
-                // Factura: solo lectura. Cualquier logueado ve las suyas;
-                // ver una factura puntual por id/ventaId queda para ADMIN/EMPLEADO.
                 .requestMatchers(HttpMethod.GET, "/facturas/mias").authenticated()
                 .requestMatchers("/facturas/**").hasAnyRole("ADMIN", "EMPLEADO")
 
-                // Gmail: servicio de notificaciones, solo ADMIN
                 .requestMatchers("/gmail/**").hasRole("ADMIN")
 
                 .anyRequest().authenticated()
             )
-            // Antes de esto, un 401 (sin JWT / JWT invalido/vencido) o un 403
-            // (rol sin permiso) los devolvia Spring Security "pelados" -sin
-            // JSON que el front pudiera leer igual que al resto de los
-            // errores del sistema (ver core/utils/error.util.ts). Se
-            // enganchan aca, en el propio resource server, y no en un
-            // .exceptionHandling() generico, porque es el punto que Spring
-            // Security documenta para esto -un .exceptionHandling() aparte
-            // puede terminar no aplicando (lo pisa el que registra
-            // internamente oauth2ResourceServer para este mismo caso).
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt
                     .decoder(jwtDecoder)
@@ -132,8 +74,6 @@ public class GatewaySecurityConfig {
                 .authenticationEntryPoint(authenticationEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler)
             )
-            // Despues de validar el JWT, agrega X-User-Username y X-User-Roles
-            // a la request que se rutea a los microservicios (paso del practico).
             .addFilterAfter(new UserHeadersFilter(), BearerTokenAuthenticationFilter.class);
 
         return http.build();

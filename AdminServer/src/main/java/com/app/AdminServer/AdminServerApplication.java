@@ -1,4 +1,4 @@
-package com.app.AdminServer; // o el paquete que uses
+package com.app.AdminServer;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

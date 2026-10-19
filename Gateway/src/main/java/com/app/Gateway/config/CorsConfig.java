@@ -8,14 +8,7 @@ import org.springframework.web.filter.CorsFilter;
 
 import java.util.List;
 
-/**
- * Habilita CORS a nivel de filtro de servlet para que el front Angular
- * (por defecto en http://localhost:4200) pueda pegarle al Gateway.
- *
- * Se usa un CorsFilter (en vez de WebMvcConfigurer#addCorsMappings) porque
- * corre antes en la cadena de filtros y no depende de cómo el
- * spring-cloud-starter-gateway-server-webmvc resuelve las rutas internamente.
- */
+
 @Configuration
 public class CorsConfig {
 

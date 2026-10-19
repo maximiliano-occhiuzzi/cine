@@ -24,9 +24,6 @@ public class VentaController {
         this.ventaService = ventaService;
     }
 
-    // X-User-Username lo agrega el Gateway (UserHeadersFilter) con el subject
-    // del JWT. En el Gateway, POST /ventas esta abierto a cualquier usuario
-    // autenticado (CLIENTE incluido).
     @PostMapping
     @Operation(summary = "Comprar una entrada (y opcionalmente productos de confiteria)")
     public ResponseEntity<VentaDTO> altaVenta(@RequestHeader("X-User-Username") String username,
@@ -34,16 +31,12 @@ public class VentaController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ventaService.altaVenta(dto, username));
     }
 
-    // Listado completo: el Gateway lo deja solo para ADMIN y EMPLEADO.
     @GetMapping
     @Operation(summary = "Listar todas las ventas (ADMIN/EMPLEADO)")
     public ResponseEntity<List<VentaDTO>> listarVentas() {
         return ResponseEntity.ok(ventaService.listarVentas());
     }
 
-    // Las compras del usuario logueado: el Gateway lo deja a cualquier
-    // autenticado, antes de la regla general que restringe /ventas/** a
-    // ADMIN/EMPLEADO.
     @GetMapping("/mias")
     @Operation(summary = "Listar las compras del usuario logueado")
     public ResponseEntity<List<VentaDTO>> misVentas(@RequestHeader("X-User-Username") String username) {
@@ -56,8 +49,6 @@ public class VentaController {
         return ResponseEntity.ok(ventaService.obtenerPorId(id));
     }
 
-    // Verifica que la venta sea del usuario logueado (o que sea ADMIN/EMPLEADO)
-    // antes de cancelar — ver VentaServiceImpl.verificarPropietarioOAdmin.
     @PostMapping("/{id}/cancelar")
     @Operation(summary = "Cancelar una venta: libera la butaca y, si ya estaba pagada, intenta el reembolso")
     public ResponseEntity<VentaDTO> cancelarVenta(@PathVariable Long id,
@@ -66,9 +57,6 @@ public class VentaController {
         return ResponseEntity.ok(ventaService.cancelarVenta(id, username, roles));
     }
 
-    // Vuelve a generar el link de pago de una venta propia que quedo
-    // PENDIENTE sin link real (Mercado Pago la rechazo o no respondio la
-    // primera vez) — antes era un callejon sin salida en "Mis compras".
     @PostMapping("/{id}/reintentar-pago")
     @Operation(summary = "Volver a generar el link de pago de una venta propia que quedo pendiente")
     public ResponseEntity<VentaDTO> reintentarPago(@PathVariable Long id,
@@ -77,10 +65,6 @@ public class VentaController {
         return ResponseEntity.ok(ventaService.reintentarPago(id, username, roles));
     }
 
-    // Lo llama Mercado Pago directamente (no el front, no un usuario logueado),
-    // asi que no espera ni valida ningun header nuestro. A Mercado Pago solo
-    // le importa recibir un 200 OK rapido. El Gateway ya tiene
-    // POST /ventas/webhook/** como permitAll (GatewaySecurityConfig).
     @PostMapping("/webhook/mercadopago")
     @Operation(summary = "Webhook de Mercado Pago (llamado por Mercado Pago, sin auth nuestra)")
     public ResponseEntity<Void> webhookMercadoPago(@RequestBody MercadoPagoWebhookDTO webhook) {

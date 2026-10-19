@@ -12,9 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-// Mismo prefijo /productos (ruteado por Gateway como /productos/**), para no
-// tener que tocar el Gateway ni los properties: Peliculas vive en el mismo
-// microservicio que Producto (ambos son "catalogo del cine").
 @RestController
 @RequestMapping("/productos/peliculas")
 @RequiredArgsConstructor
@@ -33,13 +30,11 @@ public class PeliculaController {
         return ResponseEntity.ok(peliculaService.modificarPelicula(id, dto));
     }
 
-    // Cartelera publica: solo peliculas activas. Usado por el frontend.
     @GetMapping
     public ResponseEntity<List<PeliculaSalidaDTO>> listarCartelera() {
         return ResponseEntity.ok(peliculaService.listarCartelera());
     }
 
-    // Para la pantalla de administracion: incluye tambien las dadas de baja.
     @GetMapping("/todas")
     public ResponseEntity<List<PeliculaSalidaDTO>> listarTodas() {
         return ResponseEntity.ok(peliculaService.listarTodas());

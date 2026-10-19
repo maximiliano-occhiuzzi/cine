@@ -9,14 +9,7 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Factura escucha el MISMO exchange/routing key que ya publica MS Ventas
- * para "venta confirmada" (exchange "venta.eventos", routing key
- * "venta.confirmada" — ver RabbitMQConfig de Ventas), pero con su PROPIA
- * cola. Un exchange topic puede tener varias colas bindeadas a la misma
- * routing key: Email y Factura reciben cada uno su propia copia del mismo
- * mensaje, sin que Ventas tenga que saber que existen los dos.
- */
+
 @Configuration
 public class RabbitMQConfig {
 

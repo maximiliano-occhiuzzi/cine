@@ -11,17 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-/**
- * Cliente Feign hacia la API REAL de Mercado Pago (Checkout Pro). A
- * diferencia de SalaClient/ProductoClient, esto NO pasa por Eureka ni por el
- * Gateway: Mercado Pago es un servicio externo, por eso se declara con
- * "url" fijo (configurable por property, para poder apuntar a sandbox).
- *
- * Hace falta cargar mercadopago.access-token (ver MercadoPagoFeignConfig)
- * con un access token real para que esto funcione — de la misma forma que
- * Gmail necesita credenciales reales de una cuenta de Gmail
- * (spring.mail.username/password) para poder mandar mails.
- */
+
 @FeignClient(
         name = "mercadoPago",
         url = "${mercadopago.api-url:https://api.mercadopago.com}",

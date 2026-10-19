@@ -6,8 +6,6 @@ import com.app.model.Producto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-// DTO de salida: desacopla la API de la entidad JPA (no expone detalles
-// internos de persistencia y controla exactamente que campos se devuelven).
 public record ProductoSalidaDTO(
     Long id,
     String nombre,

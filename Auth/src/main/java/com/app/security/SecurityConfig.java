@@ -26,9 +26,6 @@ import java.util.Base64;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    // Viene del config server, del application.yml GLOBAL (compartido por
-    // todos los microservicios). Tiene que ser el MISMO valor en todos lados:
-    // el que emite acá y el que valida en el Gateway.
     @Value("${jwt.secret}")
     private String jwtSecretBase64;
 
@@ -37,7 +34,6 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // Para EMITIR tokens (usado por JwtService en /auth/login).
     @Bean
     public JwtEncoder jwtEncoder() {
         byte[] keyBytes = Base64.getDecoder().decode(jwtSecretBase64);
@@ -45,9 +41,6 @@ public class SecurityConfig {
         return new NimbusJwtEncoder(new ImmutableSecret<>(key));
     }
 
-    // Para VALIDAR tokens. Auth ahora también necesita esto, porque
-    // /auth/register va a exigir que quien lo llame ya venga con un JWT
-    // válido y rol ADMIN — ya no es un endpoint 100% abierto.
     @Bean
     public JwtDecoder jwtDecoder() {
         byte[] keyBytes = Base64.getDecoder().decode(jwtSecretBase64);
@@ -55,8 +48,6 @@ public class SecurityConfig {
         return NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
     }
 
-    // Mismo converter que en el Gateway y en los microservicios de dominio:
-    // lee el claim "roles" en vez del "scope" por default.
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
@@ -75,31 +66,15 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // login sigue abierto: para pedir un token todavía no tenés uno
                 .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
-                // refresh y logout usan el refresh token como credencial
-                // propia (no el access token) — no tiene sentido exigir
-                // un JWT vigente para pedir uno nuevo, o para cerrar sesión
                 .requestMatchers(HttpMethod.POST, "/auth/refresh", "/auth/logout").permitAll()
-                .requestMatchers("/actuator/**", "/h2-console/**").permitAll()
-                // alta pública de clientes (autoservicio, siempre rol CLIENTE)
-                .requestMatchers(HttpMethod.POST, "/auth/registro-cliente").permitAll()
-                // Panel de administracion de usuarios: va ANTES que el
-                // permitAll de /auth/usuarios/** (mas abajo) porque ese
-                // patron con "**" tambien matchea "/auth/usuarios" exacto
-                // -si quedara despues, este listado completo (que SI expone
-                // rol y estado) quedaria publico sin querer.
-                .requestMatchers(HttpMethod.GET, "/auth/usuarios").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PATCH, "/auth/usuarios/*/estado").hasRole("ADMIN")
+                .requestMatchers("/actuatorestado").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/auth/usuarios/*").hasRole("ADMIN")
-                // lookup de nombre/apellido por username: tráfico interno
-                // service-to-service (Ventas vía Feign), no de un usuario final
                 .requestMatchers(HttpMethod.GET, "/auth/usuarios/**").permitAll()
-                // registrar usuarios nuevos (ADMIN/EMPLEADO): solo alguien YA logueado como ADMIN
                 .requestMatchers(HttpMethod.POST, "/auth/register").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
-            .headers(headers -> headers.frameOptions(frame -> frame.disable())) // para el h2-console
+            .headers(headers -> headers.frameOptions(frame -> frame.disable()))
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
                 .decoder(jwtDecoder)
                 .jwtAuthenticationConverter(jwtAuthenticationConverter)

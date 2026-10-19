@@ -10,9 +10,6 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 
-// DTO para el PUT. Tiene los mismos campos que el alta pero se mantiene
-// separado para no acoplar ambos casos: si manana el alta o la modificacion
-// necesitan reglas distintas, ya estan desacoplados.
 public record ProductoModificarDTO(
     @NotBlank(message = "El nombre es obligatorio")
     @Size(max = 100, message = "El nombre no puede superar los 100 caracteres")

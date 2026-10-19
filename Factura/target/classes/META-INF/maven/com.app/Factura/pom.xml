@@ -27,15 +27,13 @@
 			<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
 		</dependency>
 
-		<!-- Feign: resolver nombre/apellido/email del comprador (Auth) y mandar
-		     el mail de la factura (Gmail), ambos "opcionales" (no bloquean la
-		     persistencia de la factura si fallan). -->
+		
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-openfeign</artifactId>
 		</dependency>
 
-		<!-- RabbitMQ: consume venta.confirmada, publicado por MS Ventas. -->
+		
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-amqp</artifactId>

@@ -15,13 +15,6 @@ public class RabbitMQConfig {
     public static final String EXCHANGE_VENTAS = "exchange.ventas";
     public static final String ROUTING_KEY_BUTACAS = "routing.butacas";
 
-    // Antes, si cambiarEstadoButaca() fallaba por algo transitorio (ej. la
-    // base de Salas momentaneamente ocupada), VentasConsumer solo lo
-    // logueaba y el mensaje se ACKeaba igual: el evento se perdia para
-    // siempre, sin reintento ni rastro, y la butaca quedaba desincronizada
-    // en silencio. Con esta dead-letter queue, cuando VentasConsumer
-    // rechaza el mensaje (ver AmqpRejectAndDontRequeueException), en vez de
-    // perderse queda acá, visible para revisarlo y reprocesarlo a mano.
     public static final String DLX = "exchange.ventas.dlx";
     public static final String QUEUE_BUTACAS_DLQ = "queue.butacas.actualizar.dlq";
 

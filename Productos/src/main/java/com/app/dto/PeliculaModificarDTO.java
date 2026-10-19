@@ -9,7 +9,6 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 
-// Mismos campos que el alta, separado para no acoplar ambos casos.
 public record PeliculaModificarDTO(
     @NotBlank(message = "El titulo es obligatorio")
     @Size(max = 150, message = "El titulo no puede superar los 150 caracteres")

@@ -13,13 +13,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.time.LocalDateTime;
 
-/**
- * Se dispara cuando una request llega SIN un JWT valido a un endpoint que lo
- * requiere (token ausente, vencido, mal firmado, etc.). Antes de esto no
- * existia -Spring Security devolvia su 401 por defecto (sin body JSON), que
- * el front no podia leer igual que al resto de los errores del sistema (ver
- * core/utils/error.util.ts / ApiError).
- */
+
 @Component
 public class ApiErrorAuthenticationEntryPoint implements AuthenticationEntryPoint {
 

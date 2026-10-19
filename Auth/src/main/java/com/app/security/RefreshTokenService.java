@@ -15,10 +15,6 @@ public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
 
-    // Mucho más largo que el access token (que dura minutos): el refresh
-    // token es el que sostiene la sesión "de fondo". Acá sí importa que
-    // dure días, porque es el que evita tener que loguearse de nuevo
-    // todo el tiempo.
     @Value("${jwt.refresh-expiration-ms:604800000}")
     private long refreshExpirationMs;
 
@@ -28,10 +24,6 @@ public class RefreshTokenService {
 
     public RefreshToken crear(Usuario usuario) {
         RefreshToken refreshToken = new RefreshToken();
-        // UUID random como valor del token: no es un JWT, es simplemente
-        // un identificador opaco e imposible de adivinar. Toda la
-        // "inteligencia" (quién es, cuándo vence) vive en esta tabla,
-        // no en el string en sí — por eso SÍ se puede revocar.
         refreshToken.setToken(UUID.randomUUID().toString());
         refreshToken.setUsuario(usuario);
         refreshToken.setExpiraEn(Instant.now().plusMillis(refreshExpirationMs));
@@ -39,10 +31,7 @@ public class RefreshTokenService {
         return refreshTokenRepository.save(refreshToken);
     }
 
-    /**
-     * Devuelve el usuario dueño del refresh token, solo si el token
-     * existe, no fue revocado, y no expiró. Cualquier otro caso, vacío.
-     */
+    
     public Optional<Usuario> validarYObtenerUsuario(String token) {
         return refreshTokenRepository.findByToken(token)
                 .filter(rt -> !rt.isRevocado())
@@ -50,10 +39,7 @@ public class RefreshTokenService {
                 .map(RefreshToken::getUsuario);
     }
 
-    /**
-     * Esto es el "logout real": una vez revocado, nadie puede volver a
-     * usar este refresh token para pedir un access token nuevo.
-     */
+    
     public void revocar(String token) {
         refreshTokenRepository.findByToken(token)
                 .ifPresent(rt -> {
@@ -62,12 +48,7 @@ public class RefreshTokenService {
                 });
     }
 
-    /**
-     * Revoca TODOS los refresh tokens activos de un usuario de una sola vez
-     * -lo usa AuthController#cambiarEstado al deshabilitarlo, para que no
-     * pueda seguir renovando su sesion desde ningun dispositivo en el que
-     * haya quedado logueado.
-     */
+    
     public void revocarTodosDe(Usuario usuario) {
         var activos = refreshTokenRepository.findByUsuarioAndRevocadoFalse(usuario);
         activos.forEach(rt -> rt.setRevocado(true));

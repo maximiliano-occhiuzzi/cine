@@ -25,15 +25,6 @@ public class VentasConsumer {
             butacaService.cambiarEstadoButaca(evento.butacaId(), evento.nuevoEstado());
             log.info("Estado de Butaca ID {} actualizado exitosamente", evento.butacaId());
         } catch (Exception e) {
-            // Antes esto solo se logueaba y el metodo terminaba normal: con
-            // el ack automatico de Spring AMQP, el mensaje se daba por
-            // procesado igual y el evento se perdia para siempre (la butaca
-            // quedaba desincronizada sin ningun rastro mas que esta linea de
-            // log). Ahora se rechaza explicitamente: AmqpRejectAndDontRequeueException
-            // hace que Rabbit lo saque de esta cola sin reintentarlo en loop
-            // y lo mande a QUEUE_BUTACAS_DLQ (dead-letter queue), donde
-            // queda visible para revisar y reprocesar a mano en vez de
-            // perderse sin dejar rastro.
             log.error("Error al procesar actualización de butaca {} desde RabbitMQ, se manda a la dead-letter queue: {}",
                     evento.butacaId(), e.getMessage());
             throw new AmqpRejectAndDontRequeueException(

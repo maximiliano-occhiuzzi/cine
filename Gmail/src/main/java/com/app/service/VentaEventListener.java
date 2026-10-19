@@ -17,13 +17,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.util.List;
 
-/**
- * Escucha la cola "cola.confirmacion-venta" (exchange "venta.eventos",
- * routing key "venta.confirmada" — ver RabbitMQConfig): por cada venta
- * confirmada arma el correo de confirmacion con los datos reales de la
- * compra (pelicula, sala, butacas, items, total) y lo manda a traves de
- * EmailService.
- */
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -37,21 +31,11 @@ public class VentaEventListener {
     public void consumirEventoVenta(VentaConfirmadaEvent evento) {
         log.info("Evento de venta recibido (idVenta={})", evento.idVenta());
 
-        // Idempotencia: RabbitMQ es at-least-once, el mismo evento puede llegar
-        // mas de una vez (reentrega, retry del publicador). Si esa venta ya se
-        // proceso, no se vuelve a mandar el correo. Por tipo CONFIRMACION
-        // especificamente: si despues se cancela, ese es un correo distinto
-        // (ver VentaCanceladaEventListener) y no tiene que bloquearse por esto.
         if (evento.idVenta() != null && emailEnviadoRepository.existsByVentaIdAndTipo(evento.idVenta(), "CONFIRMACION")) {
             log.warn("La venta {} ya fue procesada; se ignora el evento duplicado", evento.idVenta());
             return;
         }
 
-        // El evento solo trae el username del comprador (no su mail): hay
-        // que resolverlo contra Auth. Si Auth no responde, no hay a donde
-        // mandar el correo — se descarta el evento (no es un error del
-        // broker, por eso no se tira excepcion: eso reintentaria en loop
-        // algo que nunca va a poder resolverse solo).
         String destinatario = resolverEmail(evento.username());
         if (destinatario == null || destinatario.isBlank()) {
             log.warn("No se pudo resolver el mail del usuario {} (venta {}); no se envia el correo",
@@ -64,17 +48,6 @@ public class VentaEventListener {
 
         EnviarEmailDTO dto = new EnviarEmailDTO(destinatario, asunto, mensaje);
 
-        // El service manda el mail y persiste el registro; el ventaId se guarda
-        // junto con el resto para poder auditar de que compra salio cada correo.
-        //
-        // emails_enviados.venta_id tiene constraint UNIQUE (ver EmailEnviado):
-        // si dos ejecuciones de este listener para el mismo evento llegaron a
-        // pasar el chequeo existsByVentaId() de arriba casi en simultaneo (la
-        // ventana entre el chequeo y este insert no es atomica), el segundo
-        // insert choca ahi. No es un error real -el primero ya mando el mail
-        // bien- asi que se loguea y se descarta en vez de dejar que la
-        // excepcion tire el mensaje de vuelta a la cola (eso lo reencolaria
-        // en loop: nunca va a dejar de chocar).
         try {
             EmailEnviado registro = emailService.enviar(dto, evento.idVenta());
             log.info("Correo de la venta {} procesado con estado {}",
@@ -90,14 +63,11 @@ public class VentaEventListener {
             UsuarioDTO usuario = authClient.obtenerUsuario(username);
             return usuario != null ? usuario.email() : null;
         } catch (Exception e) {
-            // Cualquier falla de comunicacion con Auth (caido, sin instancia
-            // en Eureka, timeout) nunca puede tirar el consumer abajo.
             log.warn("No se pudo resolver el usuario {} contra Auth: {}", username, e.getMessage());
             return null;
         }
     }
 
-    // Colores del frontend (Cinemark-style): fondo oscuro, acento rojo.
     private static final String ROJO = "#e50914";
     private static final String NEGRO = "#141414";
     private static final String GRIS_OSCURO = "#1f1f1f";
@@ -110,9 +80,6 @@ public class VentaEventListener {
         String nombreMostrado = nombre != null && !nombre.isBlank() ? nombre : evento.username();
         String numeroCompra = nullASinDato(evento.numeroCompra());
 
-        // El QR lleva el numero de compra (lo que se pide en boleteria para
-        // validar la entrada), nada mas: no tiene sentido meter ahi datos
-        // personales ni de pago.
         String qrBase64 = QrCodeUtil.generarBase64("CINE-TICKET:" + numeroCompra, 220);
 
         StringBuilder filasDetalle = new StringBuilder();
@@ -149,19 +116,16 @@ public class VentaEventListener {
             + "<table role=\"presentation\" width=\"420\" cellpadding=\"0\" cellspacing=\"0\" "
                 + "style=\"background:" + NEGRO + ";border-radius:12px;overflow:hidden;border:1px solid " + GRIS_BORDE + ";\">"
 
-            // Header
             + "<tr><td style=\"background:" + ROJO + ";padding:18px 24px;\">"
                 + "<span style=\"color:" + BLANCO + ";font-size:20px;font-weight:bold;letter-spacing:1px;\">CINE</span>"
                 + "<span style=\"color:" + BLANCO + ";font-size:13px;float:right;margin-top:4px;\">Confirmacion de compra</span>"
             + "</td></tr>"
 
-            // Saludo
             + "<tr><td style=\"padding:20px 24px 0 24px;\">"
                 + "<p style=\"color:" + BLANCO + ";font-size:16px;margin:0 0 4px 0;\">Hola " + nombreMostrado + ",</p>"
                 + "<p style=\"color:" + GRIS_TEXTO + ";font-size:13px;margin:0;\">Gracias por tu compra. Aca va el resumen de tu entrada.</p>"
             + "</td></tr>"
 
-            // Detalle de la funcion
             + "<tr><td style=\"padding:16px 24px 0 24px;\">"
                 + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" "
                     + "style=\"background:" + GRIS_OSCURO + ";border-radius:8px;\">"
@@ -169,7 +133,6 @@ public class VentaEventListener {
                 + "</table>"
             + "</td></tr>"
 
-            // Items comprados
             + "<tr><td style=\"padding:16px 24px 0 24px;\">"
                 + "<p style=\"color:" + GRIS_TEXTO + ";font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 6px 0;\">Tu compra</p>"
                 + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">"
@@ -177,7 +140,6 @@ public class VentaEventListener {
                 + "</table>"
             + "</td></tr>"
 
-            // Total
             + "<tr><td style=\"padding:14px 24px 0 24px;\">"
                 + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border-top:1px solid " + GRIS_BORDE + ";padding-top:10px;\">"
                 + "<tr>"
@@ -186,7 +148,6 @@ public class VentaEventListener {
                 + "</tr></table>"
             + "</td></tr>"
 
-            // QR + numero de compra
             + "<tr><td style=\"padding:22px 24px 0 24px;\" align=\"center\">"
                 + "<div style=\"background:" + BLANCO + ";padding:14px;border-radius:12px;display:inline-block;\">"
                     + qrHtml
@@ -195,7 +156,6 @@ public class VentaEventListener {
                 + "<p style=\"color:" + BLANCO + ";font-size:14px;font-weight:bold;letter-spacing:1px;margin:4px 0 0 0;\">" + numeroCompra + "</p>"
             + "</td></tr>"
 
-            // Footer
             + "<tr><td style=\"padding:22px 24px 20px 24px;\">"
                 + "<p style=\"color:" + GRIS_TEXTO + ";font-size:11px;text-align:center;margin:0;\">Este es un mail automatico, no respondas a esta direccion.</p>"
             + "</td></tr>"

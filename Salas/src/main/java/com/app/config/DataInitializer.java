@@ -17,17 +17,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-/**
- * Carga 3 salas con su mapa de butacas y una tanda de funciones (hoy,
- * mañana y el proximo finde) la primera vez que arranca el microservicio,
- * para que la cartelera del frontend no quede vacia esperando que alguien
- * cargue datos a mano por Postman.
- *
- * peliculaId 1/2/3 asume que modulo-productos sembro sus 3 peliculas de
- * ejemplo en ese orden (ver PeliculaDataInitializer alla). No hay FK real
- * entre microservicios — si esos ids no existen, las funciones igual se
- * crean, solo que el front no va a poder mostrar el titulo/poster.
- */
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -51,18 +41,15 @@ public class DataInitializer implements CommandLineRunner {
         LocalDate manana = hoy.plusDays(1);
         LocalDate proximoFinde = proximoSabadoODomingo(hoy);
 
-        // peliculaId 1 = Resident Evil: Noche Cero (terror/accion -> IMAX)
         funcion(sala1.getId(), 1L, hoy.atTime(19, 0), "8500");
         funcion(sala1.getId(), 1L, hoy.atTime(21, 45), "8500");
         funcion(sala2.getId(), 1L, manana.atTime(20, 0), "7000");
         funcion(sala1.getId(), 1L, proximoFinde.atTime(22, 0), "9500");
 
-        // peliculaId 2 = Spider-Man: Beyond the Spider-Verse (animacion -> 3D)
         funcion(sala2.getId(), 2L, hoy.atTime(18, 30), "7000");
         funcion(sala3.getId(), 2L, manana.atTime(19, 15), "11000");
         funcion(sala2.getId(), 2L, proximoFinde.atTime(17, 0), "7500");
 
-        // peliculaId 3 = Oppenheimer (drama -> VIP, funcion mas larga)
         funcion(sala3.getId(), 3L, hoy.atTime(22, 0), "11000");
         funcion(sala3.getId(), 3L, proximoFinde.atTime(20, 30), "12000");
 
@@ -73,10 +60,6 @@ public class DataInitializer implements CommandLineRunner {
         funcionService.crearFuncion(new FuncionAltaDTO(salaId, peliculaId, fechaHora, new BigDecimal(precio)));
     }
 
-    // El proximo sabado o domingo desde "hoy" (si hoy ya es sabado o
-    // domingo, devuelve hoy mismo) — asi el tab "FINDE" siempre tiene al
-    // menos una funcion sin importar que dia de la semana se arranque el
-    // sistema.
     private LocalDate proximoSabadoODomingo(LocalDate desde) {
         LocalDate d = desde;
         while (d.getDayOfWeek() != DayOfWeek.SATURDAY && d.getDayOfWeek() != DayOfWeek.SUNDAY) {

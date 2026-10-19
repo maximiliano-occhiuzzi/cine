@@ -12,14 +12,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
-/**
- * A diferencia del JWT de acceso (que no se puede revocar, es la
- * naturaleza de un token stateless), el refresh token SÍ vive en esta
- * base y SÍ lo podemos invalidar a mano — por eso el logout "de verdad"
- * pasa por acá: revocar el refresh token evita que se puedan seguir
- * pidiendo access tokens nuevos, aunque el último access token emitido
- * siga técnicamente vivo hasta que expira solo (por diseño, dura poco).
- */
+
 @Entity
 @Table(name = "refresh_tokens")
 @Data

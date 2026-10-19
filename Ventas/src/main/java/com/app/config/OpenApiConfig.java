@@ -12,15 +12,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
-/**
- * Swagger / OpenAPI de este microservicio.
- *
- *  - La documentacion se abre en  http://localhost:<puerto>/swagger-ui.html
- *  - Los pedidos de "Try it out" se mandan al GATEWAY (no directo al servicio),
- *    porque el servicio rechaza (403) todo lo que no pase por el Gateway.
- *  - Para probar endpoints protegidos: hacer login, copiar el token y pegarlo
- *    en el boton "Authorize".
- */
+
 @Configuration
 public class OpenApiConfig {
 

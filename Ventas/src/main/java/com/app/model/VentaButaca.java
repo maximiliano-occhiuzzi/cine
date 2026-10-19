@@ -12,16 +12,7 @@ import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Una butaca dentro de una Venta. Reemplaza al viejo Venta.butacaId
- * ("una Venta = una butaca") para soportar comprar varias butacas en una
- * sola compra, mismo patron que VentaProducto (lineas hijas de Venta).
- *
- * fila/numero se copian ACA al momento de confirmar la compra (mismo
- * criterio que VentaProducto.precioUnitario): la factura tiene que poder
- * mostrar "Butaca J6" aunque Sala este caida despues, o aunque la numeracion
- * de la sala cambie en el futuro.
- */
+
 @Entity
 @Table(name = "venta_butaca")
 @Data

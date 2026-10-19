@@ -11,12 +11,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.util.List;
 
-/**
- * Carga una cartelera inicial (las 3 peliculas que antes estaban hardcodeadas
- * como mock en el frontend) la primera vez que arranca el microservicio.
- * Separado de DataInitializer (que siembra Producto/confiteria) para no
- * mezclar dos catalogos distintos en una sola clase.
- */
+
 @Slf4j
 @Component
 @RequiredArgsConstructor

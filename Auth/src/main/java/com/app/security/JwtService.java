@@ -33,11 +33,7 @@ public class JwtService {
                 .issuer("cine-auth")
                 .issuedAt(ahora)
                 .expiresAt(ahora.plusMillis(expirationMs))
-                // el "subject" es el username: es lo que cada microservicio
-                // va a leer como "quien hizo esta request"
                 .subject(usuario.getUsername())
-                // claim custom con el rol, para poder hacer autorización
-                // por rol mas adelante (ej: solo ADMIN puede dar de alta)
                 .claim("roles", List.of("ROLE_" + usuario.getRol().name()))
                 .build();
 

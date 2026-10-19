@@ -28,8 +28,6 @@ public class FacturaServiceImpl implements FacturaService {
     @Override
     @Transactional
     public void procesarVentaConfirmada(VentaConfirmadaEventDTO evento) {
-        // Idempotencia: RabbitMQ puede reentregar el mismo mensaje (reinicio
-        // del consumer antes del ack, etc.) — no se duplica la factura.
         if (facturaRepository.findByVentaId(evento.idVenta()).isPresent()) {
             log.info("Ya existe una factura para la venta {}, se ignora el mensaje duplicado", evento.idVenta());
             return;
@@ -53,11 +51,6 @@ public class FacturaServiceImpl implements FacturaService {
         factura.setSubtotalProductos(evento.subtotalProductos() != null ? evento.subtotalProductos() : BigDecimal.ZERO);
         factura.setTotal(evento.total() != null ? evento.total() : BigDecimal.ZERO);
 
-        // Resolver nombre real por si el evento no lo traia completo (por
-        // ejemplo si Auth no respondio a tiempo en Ventas). El mail de
-        // confirmacion ya NO lo manda Factura: MS Gmail escucha el MISMO
-        // evento venta.confirmada con su propia cola (cola.confirmacion-venta)
-        // y lo manda por su cuenta, en paralelo — ver Gmail/VentaEventListener.
         if (factura.getNombreCompleto() == null || factura.getNombreCompleto().isBlank()) {
             UsuarioDTO usuario = obtenerUsuarioOpcional(evento.username());
             if (usuario != null) {
@@ -101,11 +94,6 @@ public class FacturaServiceImpl implements FacturaService {
         try {
             return authClient.obtenerUsuario(username);
         } catch (Exception e) {
-            // Atrapa Exception en general (no solo FeignException): si Eureka
-            // no tiene ninguna instancia de "auth" registrada, Feign/Spring
-            // Cloud LoadBalancer tira IllegalStateException, no FeignException.
-            // Sin esto, esa excepcion se escapaba y abortaba toda la factura
-            // (ni siquiera quedaba guardada) solo porque Auth no respondio.
             log.warn("No se pudo resolver el usuario {} para la factura (no bloquea la persistencia): {}", username, e.getMessage());
             return null;
         }

@@ -9,13 +9,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
-/**
- * Cierra el microservicio a peticiones que NO pasaron por el Gateway.
- *
- * El Gateway agrega la cabecera X-Gateway-Secret a cada request que rutea.
- * Si alguien le pega directo al microservicio (Postman, curl, etc.) no tiene
- * esa cabecera (o tiene una incorrecta) y recibe 403.
- */
+
 @Component
 public class GatewayInterceptor implements HandlerInterceptor {
 
@@ -32,15 +26,14 @@ public class GatewayInterceptor implements HandlerInterceptor {
         String incomingSecret = request.getHeader(HEADER);
 
         if (incomingSecret == null || !secretsMatch(incomingSecret, secretRequired)) {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN); // 403
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType("text/plain;charset=UTF-8");
             response.getWriter().write("Acceso denegado: las peticiones deben pasar por el Gateway");
-            return false; // bloquea la peticion directa
+            return false;
         }
-        return true; // viene del Gateway
+        return true;
     }
 
-    // Comparacion en tiempo constante (evita timing attacks con equals()).
     private boolean secretsMatch(String a, String b) {
         return MessageDigest.isEqual(
                 a.getBytes(StandardCharsets.UTF_8),

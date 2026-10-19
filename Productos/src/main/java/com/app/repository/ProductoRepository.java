@@ -14,7 +14,6 @@ public interface ProductoRepository extends JpaRepository<Producto, Long>, JpaSp
 
     boolean existsByNombreIgnoreCaseAndIdNot(String nombre, Long id);
 
-    // Productos activos con stock por debajo (o igual) al umbral, para reposicion.
     @Query("select p from Producto p where p.activo = true and p.stock <= :umbral order by p.stock asc")
     List<Producto> findBajoStock(@Param("umbral") int umbral);
 }

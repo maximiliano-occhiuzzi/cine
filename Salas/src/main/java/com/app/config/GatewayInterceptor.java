@@ -25,7 +25,7 @@ public class GatewayInterceptor implements HandlerInterceptor {
         String incomingSecret = request.getHeader(HEADER);
 
         if (incomingSecret == null || !secretsMatch(incomingSecret, secretRequired)) {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN); // 403
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType("text/plain;charset=UTF-8");
             response.getWriter().write("Acceso denegado: las peticiones deben pasar por el Gateway");
             return false; 

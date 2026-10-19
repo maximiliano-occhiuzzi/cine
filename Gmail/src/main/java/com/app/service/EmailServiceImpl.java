@@ -23,7 +23,6 @@ public class EmailServiceImpl implements EmailService {
     private final JavaMailSender mailSender;
     private final EmailEnviadoRepository emailEnviadoRepository;
 
-    // Cuenta de Gmail desde la que se manda (spring.mail.username)
     @Value("${spring.mail.username:}")
     private String remitente;
 
@@ -47,15 +46,9 @@ public class EmailServiceImpl implements EmailService {
         registro.setFecha(LocalDateTime.now());
         registro.setEstado("PENDIENTE");
 
-        // Se guarda primero (PENDIENTE) y recien despues se manda el mail: si
-        // el mail sale y luego falla el guardado, igual queda registro de que
-        // se intento enviar, y el historial nunca miente.
         registro = emailEnviadoRepository.save(registro);
 
         try {
-            // El cuerpo llega como HTML (ticket con estilo + QR incrustado como
-            // data URI); por eso se manda como MimeMessage y no como el viejo
-            // SimpleMailMessage (que solo soporta texto plano).
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
             if (remitente != null && !remitente.isBlank()) {
@@ -67,8 +60,6 @@ public class EmailServiceImpl implements EmailService {
             mailSender.send(mimeMessage);
             registro.setEstado("ENVIADO");
         } catch (MailException | jakarta.mail.MessagingException e) {
-            // Si Gmail rechaza (credenciales, red, etc.) se guarda el error y se
-            // devuelve el registro, en vez de romper todo el flujo.
             log.error("No se pudo enviar el mail a {}: {}", dto.destinatario(), e.getMessage());
             registro.setEstado("ERROR");
             registro.setDetalleError(e.getMessage());

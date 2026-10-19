@@ -14,12 +14,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
-/**
- * Linea de confiteria dentro de una Venta (combos, snacks, etc. de MS Productos).
- * El precio se copia ACA al momento de confirmar la compra (no se referencia
- * en vivo a Productos) para que la venta quede con el precio que realmente se
- * cobro, aunque el producto cambie de precio despues.
- */
+
 @Entity
 @Table(name = "venta_producto")
 @Data

@@ -27,8 +27,6 @@ public record PeliculaAltaDTO(
     @Size(max = 100, message = "El guionista no puede superar los 100 caracteres")
     String guionista,
 
-    // Fecha de estreno en el cine. Opcional: no todas las peliculas cargadas
-    // van a tener una fecha "oficial" definida de antemano.
     LocalDate fechaEstreno,
 
     @Size(max = 1000, message = "La sinopsis no puede superar los 1000 caracteres")

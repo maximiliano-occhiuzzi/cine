@@ -18,24 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-/**
- * Equivalente Gateway MVC del "request.mutate().header(...)" del practico.
- *
- * Corre DESPUES de que Spring Security validó el JWT. Le agrega a la request
- * que se va a rutear a los microservicios:
- *   X-User-Username -> subject del JWT
- *   X-User-Roles    -> claim "roles" (ej: ROLE_ADMIN), separado por comas
- *
- * Seguridad: antes de agregar las cabeceras propias, borra cualquier
- * X-User-* que haya mandado el cliente, para que nadie pueda hacerse pasar
- * por otro usuario mandando esas cabeceras a mano.
- *
- * (El X-Gateway-Secret lo agrega el filtro SetRequestHeader de las rutas en
- * el yml del repo de properties.)
- *
- * No es un @Component a proposito: se registra solo en la SecurityFilterChain
- * (GatewaySecurityConfig) para que no se ejecute dos veces.
- */
+
 public class UserHeadersFilter extends OncePerRequestFilter {
 
     public static final String USERNAME_HEADER = "X-User-Username";
@@ -60,7 +43,7 @@ public class UserHeadersFilter extends OncePerRequestFilter {
         chain.doFilter(new UserHeadersRequestWrapper(request, added), response);
     }
 
-    /** Request que oculta los X-User-* del cliente y expone los del Gateway. */
+    
     private static class UserHeadersRequestWrapper extends HttpServletRequestWrapper {
 
         private final Map<String, String> added;

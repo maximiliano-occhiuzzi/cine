@@ -27,15 +27,13 @@
 			<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
 		</dependency>
 
-		<!-- Feign: resolver nombre/apellido/email del comprador (Auth) y mandar
-		     el mail de la factura (Gmail), ambos "opcionales" (no bloquean la
-		     persistencia de la factura si fallan). -->
+		
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-openfeign</artifactId>
 		</dependency>
 
-		<!-- RabbitMQ: consume venta.confirmada, publicado por MS Ventas. -->
+		
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-amqp</artifactId>
@@ -66,10 +64,7 @@
 			<artifactId>mysql-connector-j</artifactId>
 			<scope>runtime</scope>
 		</dependency>
-		<!-- El perfil "dev" (application.yml local) usa H2 en memoria para no
-		     tener que levantar MySQL en una maquina de desarrollo; el perfil
-		     "docker" usa MySQL real (mysql-connector-j, arriba), con
-		     persistencia real via volumen (ver docker-compose.yml). -->
+		
 		<dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>

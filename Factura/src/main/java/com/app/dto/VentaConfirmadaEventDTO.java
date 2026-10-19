@@ -6,13 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Copia EXACTA (lado CONSUMIDOR) del contrato que publica MS Ventas:
- * com.app.senders.VentaConfirmadaEvent. Mismos nombres de campo porque
- * viaja como JSON (Jackson2JsonMessageConverter) — si Ventas cambia esta
- * clase, esta copia tiene que actualizarse igual (ver CONTRATOS-REQUERIDOS.md
- * de Ventas).
- */
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record VentaConfirmadaEventDTO(
     Long idVenta,

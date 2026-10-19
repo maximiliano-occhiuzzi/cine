@@ -27,24 +27,19 @@
 			<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
 		</dependency>
 
-		<!-- Feign: comunicacion SINCRONICA hacia MS Sala (chequear/ocupar butaca)
-		     y MS Productos (precio y stock de confiteria). -->
+		
 		<dependency>
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-openfeign</artifactId>
 		</dependency>
 
-		<!-- El cliente HTTP por defecto de Feign (HttpURLConnection, de la JDK)
-		     no soporta el metodo PATCH ("Invalid HTTP method: PATCH") y hacia
-		     fallar en silencio (atrapado como FeignException) el ajuste de
-		     stock en Productos. OkHttp si soporta PATCH. -->
+		
 		<dependency>
 			<groupId>io.github.openfeign</groupId>
 			<artifactId>feign-okhttp</artifactId>
 		</dependency>
 
-		<!-- RabbitMQ: publica VentaConfirmada / VentaCancelada para que
-		     MS Email las consuma de forma asincronica. -->
+		
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-amqp</artifactId>
@@ -75,10 +70,7 @@
 			<artifactId>mysql-connector-j</artifactId>
 			<scope>runtime</scope>
 		</dependency>
-		<!-- El perfil "dev" (application.yml local) usa H2 en memoria para no
-		     tener que levantar MySQL en una maquina de desarrollo; el perfil
-		     "docker" usa MySQL real (mysql-connector-j, arriba), con
-		     persistencia real via volumen (ver docker-compose.yml). -->
+		
 		<dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>
@@ -89,7 +81,7 @@
 			<artifactId>spring-boot-h2console</artifactId>
 		</dependency>
 
-		<!-- Documentacion / Swagger -->
+		
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
